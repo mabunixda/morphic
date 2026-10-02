@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 
 import {
   IconAlertCircle as AlertCircle,
@@ -127,10 +126,10 @@ export function ErrorModal({
           {error.type === 'auth' ? (
             <>
               <Button asChild className="w-full">
-                <Link href="/auth/sign-up">Sign Up</Link>
+                <a href="/auth/sign-up">Sign Up</a>
               </Button>
               <Button asChild variant="outline" className="w-full">
-                <Link href="/auth/login">Sign In</Link>
+                <a href="/auth/login">Sign In</a>
               </Button>
             </>
           ) : (

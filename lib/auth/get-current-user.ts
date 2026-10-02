@@ -1,16 +1,26 @@
-import { hasSupabasePublicConfig } from '@/lib/supabase/keys'
-import { createClient } from '@/lib/supabase/server'
 import { perfLog } from '@/lib/utils/perf-logging'
 import { incrementAuthCallCount } from '@/lib/utils/perf-tracking'
 
-export async function getCurrentUser() {
-  if (!hasSupabasePublicConfig()) {
-    return null // Supabase is not configured
+import { auth, oidcConfigured } from './auth'
+import type { AuthUser } from './types'
+
+export type { AuthUser } from './types'
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  if (!oidcConfigured()) {
+    return null // OIDC is not configured
   }
 
-  const supabase = await createClient()
-  const { data } = await supabase.auth.getUser()
-  return data.user ?? null
+  const session = await auth()
+  const user = session?.user
+  if (!user?.id) return null
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image
+  }
 }
 
 export async function getCurrentUserId() {

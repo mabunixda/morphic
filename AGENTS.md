@@ -28,7 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Default Behavior**: Docker deployments run in **anonymous mode** (authentication disabled).
 
-When running with Docker Compose, `ENABLE_AUTH=false` is set by default, allowing personal use without Supabase setup. All users share a single anonymous user ID.
+When running with Docker Compose, `ENABLE_AUTH=false` is set by default, allowing personal use without an identity provider. All users share a single anonymous user ID.
 
 **⚠️ Security Warning:**
 
@@ -38,13 +38,14 @@ When running with Docker Compose, `ENABLE_AUTH=false` is set by default, allowin
 - Morphic Cloud deployments block `ENABLE_AUTH=false` automatically
 
 **Enabling Authentication:**
-To require Supabase authentication, set:
+To require OIDC authentication, set:
 
 ```bash
 ENABLE_AUTH=true  # or remove ENABLE_AUTH from docker-compose.yaml
-NEXT_PUBLIC_SUPABASE_URL=[your-supabase-url]
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[your-supabase-publishable-key]
-SUPABASE_SECRET_KEY=[your-supabase-secret-key]
+AUTH_SECRET=[random-secret]
+OIDC_ISSUER=[issuer-url]
+OIDC_CLIENT_ID=[client-id]
+OIDC_CLIENT_SECRET=[client-secret]
 ```
 
 **Implementation:**
@@ -60,7 +61,7 @@ SUPABASE_SECRET_KEY=[your-supabase-secret-key]
 - **Next.js 16.2.1** with App Router, React Server Components, and Turbopack
 - **React 19.2.0** with TypeScript for type safety
 - **Vercel AI SDK 5.0.0-alpha.2** for AI streaming and GenerativeUI
-- **Supabase** for authentication and backend services
+- **Auth.js (OIDC)** for authentication
 - **PostgreSQL** with Drizzle ORM for database and chat history storage
 - **Redis** (Upstash or local) for SearXNG advanced search caching
 - **Tailwind CSS** with shadcn/ui components
@@ -103,7 +104,7 @@ SUPABASE_SECRET_KEY=[your-supabase-secret-key]
    - Server-side state via React Server Components
    - Client-side hooks in `/hooks/`
    - Redis for persistent chat history
-   - Supabase for user data
+   - OIDC identity (Auth.js JWT sessions)
 
 ## Environment Configuration
 

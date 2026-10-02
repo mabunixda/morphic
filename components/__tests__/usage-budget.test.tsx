@@ -1,6 +1,6 @@
 import React from 'react'
 
-import type { User } from '@supabase/supabase-js'
+import type { AuthUser } from '@/lib/auth/types'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -17,8 +17,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() })
 }))
 
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({ auth: { signOut: vi.fn() } })
+vi.mock('next-auth/react', () => ({
+  signOut: vi.fn()
 }))
 
 vi.mock('@/components/account-settings-dialog', () => ({
@@ -67,8 +67,8 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 const user = {
   id: 'user-1',
   email: 'person@example.com',
-  user_metadata: { full_name: 'Test Person' }
-} as unknown as User
+  name: 'Test Person'
+} as unknown as AuthUser
 
 const initialUsage = {
   remaining: 82,

@@ -100,25 +100,17 @@ docker compose down -v  # Deletes all data
 
 By default, Docker runs in anonymous mode — all users share a single anonymous user ID. This is intended for **personal, single-user local environments only**.
 
-To enable Supabase authentication for multi-user deployments:
+To enable OpenID Connect authentication (Authentik, Keycloak, ...) for multi-user deployments, add these to `.env.local` (all runtime variables, no build args needed):
 
-1. Set up a [Supabase](https://supabase.com/) project
-2. Build from source with the Supabase environment variables:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-SUPABASE_SECRET_KEY=your-supabase-secret-key
+```
 ENABLE_AUTH=true
+AUTH_SECRET=your-random-secret
+OIDC_ISSUER=https://authentik.example.com/application/o/morphic/
+OIDC_CLIENT_ID=your-client-id
+OIDC_CLIENT_SECRET=your-client-secret
 ```
 
-3. Build and start:
-
-```bash
-docker compose up -d --build
-```
-
-**Note**: The prebuilt image does not support authentication because `NEXT_PUBLIC_*` variables are embedded at build time by Next.js. You must build from source to enable authentication.
+Register `https://<your-host>/api/auth/callback/oidc` as the redirect URI. See [CONFIGURATION.md](CONFIGURATION.md#authentication).
 
 ## Useful Commands
 

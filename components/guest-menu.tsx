@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 
 import {
   IconLink as Link2,
@@ -35,10 +34,10 @@ export default function GuestMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuItem asChild>
-          <Link href="/auth/login">
+          <a href="/auth/login">
             <LogIn className="size-4" />
             <span>Sign In</span>
-          </Link>
+          </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuSub>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 
 import { UseChatHelpers } from '@ai-sdk/react'
 import {
@@ -13,6 +12,7 @@ import { toast } from 'sonner'
 
 import { saveNote } from '@/lib/actions/notes'
 import { captureClient } from '@/lib/analytics/posthog-client'
+import { useAuthEnabled } from '@/lib/contexts/user-context'
 import { stripSourceContextBlocks } from '@/lib/render/strip-source-context-blocks'
 import type { SearchResultItem } from '@/lib/types'
 import type {
@@ -83,8 +83,8 @@ export function AnswerSection({
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
   const lastTrackedSelectionKeyRef = useRef<string | null>(null)
   const { openLibrary, upsertCachedNote } = useLibrary()
-  const enableShare =
-    process.env.NEXT_PUBLIC_SUPABASE_URL !== undefined && !isGuest
+  const authEnabled = useAuthEnabled()
+  const enableShare = authEnabled && !isGuest
   const showSelectionSaveButton =
     libraryAvailable && (!isGuest || isCloudDeployment)
   const showSelectionDeepDiveButton = Boolean(onQuoteContext)
@@ -348,7 +348,7 @@ export function AnswerSection({
           </DialogHeader>
           <DialogFooter className="flex-col gap-2">
             <Button asChild className="w-full">
-              <Link
+              <a
                 href="/auth/sign-up"
                 onClick={() =>
                   captureClient('library_auth_prompt_cta_clicked', {
@@ -359,10 +359,10 @@ export function AnswerSection({
                 }
               >
                 Sign Up
-              </Link>
+              </a>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link
+              <a
                 href="/auth/login"
                 onClick={() =>
                   captureClient('library_auth_prompt_cta_clicked', {
@@ -373,7 +373,7 @@ export function AnswerSection({
                 }
               >
                 Sign In
-              </Link>
+              </a>
             </Button>
           </DialogFooter>
         </DialogContent>

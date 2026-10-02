@@ -6,7 +6,6 @@ import { trackAccountDeleted } from '@/lib/analytics'
 import { getCurrentUser } from '@/lib/auth/get-current-user'
 import * as dbActions from '@/lib/db/actions'
 import { deleteUserObjects } from '@/lib/storage/r2-client'
-import { createAdminClient } from '@/lib/supabase/admin'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -30,17 +29,6 @@ export async function deleteAccount(): Promise<{
   const user = await getCurrentUser()
   if (!user) {
     return { success: false, error: 'User not authenticated' }
-  }
-
-  let adminClient: ReturnType<typeof createAdminClient>
-  try {
-    adminClient = createAdminClient()
-  } catch (error) {
-    console.error('Supabase admin client is not configured:', error)
-    return {
-      success: false,
-      error: 'Account deletion is not configured. Set SUPABASE_SECRET_KEY.'
-    }
   }
 
   try {
@@ -81,10 +69,7 @@ export async function deleteAccount(): Promise<{
 
     await deleteUserObjects(user.id)
 
-    const { error } = await adminClient.auth.admin.deleteUser(user.id)
-    if (error) {
-      throw error
-    }
+    // The identity itself lives in the OIDC provider and is not deleted here.
 
     revalidateTag('chat', 'max')
     await trackAccountDeleted(user.id)

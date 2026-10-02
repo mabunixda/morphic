@@ -1,0 +1,9 @@
+[tools]
+bun = "1.2.12"
+node = "22"
+
+[tasks.dev]
+run = "bun install && bun dev"
+
+[tasks.check]
+run = ["bun run typecheck", "bun run test"]

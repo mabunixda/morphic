@@ -201,26 +201,90 @@ All users share a single anonymous user ID. No additional configuration needed.
 
 Anyone who can reach the instance can send prompts, and a prompt is what decides which addresses the server requests on the sender's behalf.
 
-### Enabling Supabase Authentication
+### Enabling OpenID Connect Authentication
 
-For multi-user deployments:
+For multi-user deployments, Morphic supports any OpenID Connect provider
+(Authentik, Keycloak, Zitadel, Google, ...). Sessions are stateless JWT cookies
+(Auth.js), so no extra database tables are required. The OIDC `sub` claim is
+used as the Morphic user id.
 
-1. Create a Supabase project at [supabase.com](https://supabase.com)
+1. Create an OAuth2/OpenID application at your provider with the redirect URI
+   `https://<your-host>/api/auth/callback/oidc`.
 
 2. Set the following environment variables:
 
-```bash
+```
 ENABLE_AUTH=true
-NEXT_PUBLIC_SUPABASE_URL=[YOUR_SUPABASE_PROJECT_URL]
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[YOUR_SUPABASE_PUBLISHABLE_KEY]
-# Required for account deletion. Keep server-side only.
-SUPABASE_SECRET_KEY=[YOUR_SUPABASE_SECRET_KEY]
+AUTH_SECRET=[openssl rand -base64 32]
+OIDC_ISSUER=[ISSUER_URL]            # e.g. https://authentik.example.com/application/o/morphic/
+OIDC_CLIENT_ID=[YOUR_CLIENT_ID]
+OIDC_CLIENT_SECRET=[YOUR_CLIENT_SECRET]
+OIDC_PROVIDER_NAME=Authentik        # optional
+OIDC_SCOPE=openid profile email     # optional
 ```
 
-3. Obtain your credentials from the Supabase dashboard:
-   - **Project URL**: Settings > API > Project URL
-   - **Publishable Key**: Settings > API Keys > publishable key (`sb_publishable_...`)
-   - **Secret Key**: Settings > API Keys > secret key (`sb_secret_...`)
+Notes: the issuer URL must serve `/.well-known/openid-configuration`. Account
+deletion removes Morphic data only; the identity stays in your provider.
+
+#### Provider setup (Authentik example)
+
+Create an *OAuth2/OpenID Provider* (client type: confidential) and an
+application. Use the strict redirect URI
+`https://<your-host>/api/auth/callback/oidc` and the default `openid`,
+`profile` and `email` scopes. The issuer is
+`https://<authentik-host>/application/o/<application-slug>/`; confirm it
+against the `issuer` field of its `.well-known/openid-configuration`
+(including the trailing slash). Do not change the provider's subject mode
+later: the `sub` claim is the Morphic user id, so changing it orphans existing
+chat history.
+
+#### Redirect URIs
+
+Register one callback URI per hostname Morphic is reached on, using strict
+matching (scheme, host and path must match exactly, no trailing slash):
+
+```
+https://<your-host>/api/auth/callback/oidc
+http://localhost:3000/api/auth/callback/oidc    # only if you also run `bun dev`
+```
+
+The final segment (`oidc`) is the provider id set in `lib/auth/auth.ts`;
+changing it changes the URI. No post-logout redirect URI is needed: logout
+only clears Morphic's own session cookie and does not call the provider's
+end-session endpoint.
+
+#### Behind a reverse proxy
+
+The proxy must forward `X-Forwarded-Proto` and `X-Forwarded-Host`. Auth.js
+trusts these headers to build the callback URL. If you get a redirect URI
+mismatch, set the public URL explicitly:
+
+```
+AUTH_URL=https://morphic.example.com    # optional, auth callback base URL
+BASE_URL=https://morphic.example.com    # optional, Morphic's own links (e.g. sharing)
+```
+
+`BASE_URL` is read at runtime. Prefer it over `NEXT_PUBLIC_BASE_URL`, which is
+inlined at build time and would require rebuilding the image to change.
+
+#### Private or self-signed CA
+
+The Morphic container fetches the provider's discovery document and exchanges
+the authorization code server-side. If your provider uses a certificate from a
+private CA, mount the CA certificate into the container and point Node at it:
+
+```
+NODE_EXTRA_CA_CERTS=/certs/ca.pem
+```
+
+#### Troubleshooting
+
+- `/auth/error?error=Configuration`: issuer or discovery URL is wrong or
+  unreachable from the container.
+- `OAuthCallbackError` / redirect URI mismatch: the registered redirect URI
+  differs from the one built from your proxy headers. Set `AUTH_URL`.
+- Logging out only ends the Morphic session. Your provider's own session stays
+  active, so signing in again may not prompt for credentials.
 
 ## Guest Mode
 
@@ -257,7 +321,7 @@ Rate limiting only applies when `MORPHIC_CLOUD_DEPLOYMENT=true`.
 | -------------- | -------------------------------------------- |
 | Personal/Local | `ENABLE_AUTH=false` (anonymous mode)         |
 | Public Demo    | `ENABLE_GUEST_CHAT=true` with rate limiting  |
-| Production     | `ENABLE_AUTH=true` (Supabase authentication) |
+| Production     | `ENABLE_AUTH=true` (OIDC authentication) |
 
 ## Other Features
 

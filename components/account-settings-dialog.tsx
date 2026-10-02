@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
-import type { User } from '@supabase/supabase-js'
+import { signOut } from 'next-auth/react'
 import {
   IconDeviceLaptop as Laptop,
   IconMoon as Moon,
@@ -13,7 +13,7 @@ import {
 import { toast } from 'sonner'
 
 import { deleteAccount } from '@/lib/actions/account'
-import { createClient } from '@/lib/supabase/client'
+import type { AuthUser } from '@/lib/auth/types'
 
 import {
   AlertDialog,
@@ -42,7 +42,7 @@ import { useTheme } from '@/components/theme-provider'
 interface AccountSettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  user: User
+  user: AuthUser
 }
 
 const themeOptions = [
@@ -62,8 +62,7 @@ export function AccountSettingsDialog({
   const [confirmOpen, setConfirmOpen] = useState(false)
   const activeTheme = theme ?? 'system'
 
-  const userName =
-    user.user_metadata?.full_name || user.user_metadata?.name || 'User'
+  const userName = user.name || 'User'
 
   const handleDeleteAccount = () => {
     startDeleteTransition(async () => {
@@ -71,7 +70,7 @@ export function AccountSettingsDialog({
 
       if (result.success) {
         try {
-          await createClient().auth.signOut()
+          await signOut({ redirect: false })
         } catch (error) {
           console.error('Failed to clear client session:', error)
         }

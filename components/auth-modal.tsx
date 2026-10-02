@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -34,10 +33,10 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         </DialogHeader>
         <div className="mt-6 space-y-3">
           <Button asChild className="w-full" size="lg">
-            <Link href="/auth/sign-up">Sign Up</Link>
+            <a href="/auth/sign-up">Sign Up</a>
           </Button>
           <Button asChild variant="outline" className="w-full" size="lg">
-            <Link href="/auth/login">Sign In</Link>
+            <a href="/auth/login">Sign In</a>
           </Button>
         </div>
       </DialogContent>

@@ -10,15 +10,9 @@ vi.mock('next/headers', () => ({
   }))
 }))
 
-// Mock Supabase
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    auth: {
-      getUser: vi.fn(() =>
-        Promise.resolve({ data: { user: null }, error: null })
-      )
-    }
-  }))
+// Mock auth (anonymous visitor)
+vi.mock('@/lib/auth/get-current-user', () => ({
+  getCurrentUser: vi.fn(() => Promise.resolve(null))
 }))
 
 // Mock the modules

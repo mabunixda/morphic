@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 
 import { UseChatHelpers } from '@ai-sdk/react'
 import {
@@ -315,7 +314,7 @@ export function MessageActions({
           </DialogHeader>
           <DialogFooter className="flex-col gap-2">
             <Button asChild className="w-full">
-              <Link
+              <a
                 href="/auth/sign-up"
                 onClick={() =>
                   captureClient('library_auth_prompt_cta_clicked', {
@@ -326,10 +325,10 @@ export function MessageActions({
                 }
               >
                 Sign Up
-              </Link>
+              </a>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link
+              <a
                 href="/auth/login"
                 onClick={() =>
                   captureClient('library_auth_prompt_cta_clicked', {
@@ -340,7 +339,7 @@ export function MessageActions({
                 }
               >
                 Sign In
-              </Link>
+              </a>
             </Button>
           </DialogFooter>
         </DialogContent>

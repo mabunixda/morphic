@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { hasSupabasePublicConfig } from '@/lib/supabase/keys'
-import { updateSession } from '@/lib/supabase/middleware'
 
 export async function proxy(request: NextRequest) {
   // Get the protocol from X-Forwarded-Proto header or request protocol
@@ -15,17 +13,11 @@ export async function proxy(request: NextRequest) {
   // Construct the base URL - ensure protocol has :// format
   const baseUrl = `${protocol}${protocol.endsWith(':') ? '//' : '://'}${host}`
 
-  // Create a response
-  let response: NextResponse
-
-  if (hasSupabasePublicConfig()) {
-    response = await updateSession(request)
-  } else {
-    // If Supabase is not configured, just pass the request through
-    response = NextResponse.next({
-      request
-    })
-  }
+  // Authentication is resolved server-side (Auth.js JWT cookie), so the
+  // proxy only passes the request through and annotates it.
+  const response = NextResponse.next({
+    request
+  })
 
   // Add request information to response headers
   response.headers.set('x-url', request.url)

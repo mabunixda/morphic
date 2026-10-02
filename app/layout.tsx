@@ -3,10 +3,8 @@ import { Inter as FontSans } from 'next/font/google'
 
 import { Analytics } from '@vercel/analytics/next'
 
-import { getCurrentUserId } from '@/lib/auth/get-current-user'
+import { getCurrentUser, getCurrentUserId } from '@/lib/auth/get-current-user'
 import { UserProvider } from '@/lib/contexts/user-context'
-import { hasSupabasePublicConfig } from '@/lib/supabase/keys'
-import { createClient } from '@/lib/supabase/server'
 import {
   ENFORCEMENT,
   getUsageBudget,
@@ -66,15 +64,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  let user = null
-
-  if (hasSupabasePublicConfig()) {
-    const supabase = await createClient()
-    const {
-      data: { user: supabaseUser }
-    } = await supabase.auth.getUser()
-    user = supabaseUser
-  }
+  const user =
+    process.env.ENABLE_AUTH === 'false' ? null : await getCurrentUser()
 
   const userId = user?.id ?? (await getCurrentUserId())
   const isCloudDeployment = process.env.MORPHIC_CLOUD_DEPLOYMENT === 'true'
@@ -89,7 +80,7 @@ export default async function RootLayout({
     usageBudgetEnabled && user
       ? await getUsageBudget({
           userId: user.id,
-          userCreatedAt: user.created_at
+          userCreatedAt: user.created_at ?? null
         })
       : null
   const initialUsage = usageSnapshot
@@ -119,7 +110,10 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <PostHogProvider userId={user?.id ?? null}>
-            <UserProvider hasUser={!!userId}>
+            <UserProvider
+              hasUser={!!userId}
+              authEnabled={process.env.ENABLE_AUTH !== 'false'}
+            >
               <SidebarProvider defaultOpen={false}>
                 <LibraryProvider>
                   <UsageBudgetProvider
