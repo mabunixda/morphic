@@ -18,6 +18,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() })
 }))
 
+vi.mock('next-auth/react', () => ({
+  signOut: vi.fn()
+}))
+
 vi.mock('@/components/account-settings-dialog', () => ({
   AccountSettingsDialog: () => null
 }))
@@ -61,11 +65,11 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => children
 }))
 
-const user: AppUser = {
+const user = {
   id: 'user-1',
   email: 'person@example.com',
   name: 'Test Person'
-}
+} as unknown as AppUser
 
 const initialUsage = {
   remaining: 82,

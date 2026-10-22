@@ -9,7 +9,6 @@ import {
   trackChatEvent
 } from '@/lib/analytics'
 import { getCurrentUser, getCurrentUserId } from '@/lib/auth/get-current-user'
-import { isAnonymousMode } from '@/lib/auth/provider'
 import { getUserMessageIds } from '@/lib/db/actions'
 import { generateId } from '@/lib/db/schema'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
@@ -102,10 +101,13 @@ export async function POST(req: Request) {
     const isSharePage = referer?.includes('/share/')
 
     const authStart = performance.now()
-    const anonymous = isAnonymousMode()
-    const currentUser = anonymous ? null : await getCurrentUser()
+    const currentUser =
+      process.env.ENABLE_AUTH === 'false' ? null : await getCurrentUser()
     const userId =
-      currentUser?.id ?? (anonymous ? await getCurrentUserId() : undefined)
+      currentUser?.id ??
+      (process.env.ENABLE_AUTH === 'false'
+        ? await getCurrentUserId()
+        : undefined)
     perfTime('Auth completed', authStart)
 
     if (isSharePage) {
@@ -401,41 +403,8 @@ export async function POST(req: Request) {
 
     let response: Response
     if (isGuest) {
-      if (!Array.isArray(messages) || messages.length === 0) {
-        return new Response('messages are required', {
-          status: 400,
-          statusText: 'Bad Request'
-        })
-      }
-
-      if (
-        !messages.every(
-          (message: unknown) =>
-            typeof message === 'object' &&
-            message !== null &&
-            !Array.isArray(message) &&
-            'role' in message &&
-            typeof message.role === 'string' &&
-            'parts' in message &&
-            Array.isArray(message.parts) &&
-            message.parts.every(
-              (part: unknown) =>
-                typeof part === 'object' &&
-                part !== null &&
-                !Array.isArray(part) &&
-                'type' in part &&
-                typeof part.type === 'string'
-            )
-        )
-      ) {
-        return new Response('Invalid message structure', {
-          status: 400,
-          statusText: 'Bad Request'
-        })
-      }
-
       response = await createEphemeralChatStreamResponse({
-        messages,
+        messages: Array.isArray(messages) ? messages : [],
         model: selectedModel,
         abortSignal,
         searchMode,

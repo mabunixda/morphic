@@ -1,7 +1,14 @@
-import { useAppUser } from '@/lib/contexts/app-user-context'
+import { useEffect, useState } from 'react'
 
 export const useCurrentUserName = () => {
-  const user = useAppUser()
+  const [name, setName] = useState<string | null>(null)
 
-  return user?.name || '?'
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(res => (res.ok ? res.json() : null))
+      .then(session => setName(session?.user?.name ?? '?'))
+      .catch(() => setName('Anonymous'))
+  }, [])
+
+  return name || '?'
 }

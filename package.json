@@ -83,6 +83,7 @@
     "jsdom": "^26.1.0",
     "katex": "^0.16.10",
     "next": "^16.2.6",
+    "next-auth": "5.0.0-beta.32",
     "node-html-parser": "^6.1.13",
     "nodemailer": "^10.0.15",
     "postgres": "^3.4.5",

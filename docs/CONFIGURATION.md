@@ -8,10 +8,6 @@ This guide covers the optional features and their configuration in Morphic.
 - [AI Providers](#ai-providers)
 - [Search Providers](#search-providers)
 - [Authentication](#authentication)
-  - [Auth Provider](#auth-provider-auth_provider)
-  - [Anonymous Mode](#anonymous-mode-default)
-  - [Better Auth](#better-auth)
-  - [Supabase](#supabase)
 - [Guest Mode](#guest-mode)
 - [Other Features](#other-features)
 - [Privacy and Telemetry](./PRIVACY.md)
@@ -192,42 +188,9 @@ If not configured, `type="general"` searches fall back to your configured search
 
 ## Authentication
 
-Morphic has three auth providers. Pick the one that matches how the instance is used:
-
-| Use case                           | Provider                                  |
-| ---------------------------------- | ----------------------------------------- |
-| Personal, single user              | [Anonymous mode](#anonymous-mode-default) |
-| Self-hosted, multiple users        | [Better Auth](#better-auth)               |
-| You already run a Supabase project | [Supabase](#supabase)                     |
-
-### Auth Provider (`AUTH_PROVIDER`)
-
-Set `AUTH_PROVIDER` explicitly to one of:
-
-| Value         | Description                                                     |
-| ------------- | --------------------------------------------------------------- |
-| `none`        | Anonymous mode: all users share one user ID                     |
-| `better-auth` | Built-in accounts stored in Morphic's own Postgres (multi-user) |
-| `supabase`    | Supabase cloud authentication (multi-user)                      |
-
-When `AUTH_PROVIDER` is **unset**, the provider is derived from the existing
-environment so current deployments keep working unchanged:
-
-- `ENABLE_AUTH=false` → `none` (anonymous mode, shared `ANONYMOUS_USER_ID`).
-  This is what `.env.local.example` and Docker Compose set.
-- otherwise → `supabase` (when Supabase is not configured, no user is resolved
-  and the app behaves as before: guest/anonymous access without a shared ID)
-
-Better Auth is never selected implicitly. An explicit `AUTH_PROVIDER` takes
-precedence over `ENABLE_AUTH`.
-
-`MORPHIC_CLOUD_DEPLOYMENT=true` requires Supabase-backed auth: requests fail
-with a clear error when the resolved provider is `none` or any non-Supabase
-provider.
+By default, Morphic runs in **anonymous mode** (`ENABLE_AUTH=false`). This is ideal for personal, single-user environments.
 
 ### Anonymous Mode (Default)
-
-For personal, single-user environments.
 
 ```bash
 ENABLE_AUTH=false
@@ -238,113 +201,90 @@ All users share a single anonymous user ID. No additional configuration needed.
 
 Anyone who can reach the instance can send prompts, and a prompt is what decides which addresses the server requests on the sender's behalf.
 
-### Better Auth
+### Enabling OpenID Connect Authentication
 
-For multi-user self-hosting, this is the recommended provider. Accounts live in Morphic's own Postgres database, so no external auth service is needed.
+For multi-user deployments, Morphic supports any OpenID Connect provider
+(Authentik, Keycloak, Zitadel, Google, ...). Sessions are stateless JWT cookies
+(Auth.js), so no extra database tables are required. The OIDC `sub` claim is
+used as the Morphic user id.
 
-> **Note**: This provider is new. Its built-in rate limiting for sign-in, sign-up, and password reset is basic and in-process. If the instance is reachable from the internet, put it behind a reverse proxy that enforces its own rate limits and terminates HTTPS.
-
-#### Setup
-
-1. Configure `.env.local`:
-
-```bash
-AUTH_PROVIDER=better-auth
-BETTER_AUTH_SECRET=run-openssl-rand-hex-32-for-a-stable-value
-# Recommended whenever the instance is reachable by anyone but you:
-BOOTSTRAP_ADMIN_EMAIL=you@example.com
-```
-
-`BETTER_AUTH_SECRET` is required in production builds. Keep it stable across restarts.
-
-2. Start Morphic. The auth tables are created by the database migration. With Docker (`docker compose up -d`), migrations run automatically at container start. For local development (`bun dev` with a local Postgres), run `bun migrate` once before starting the dev server.
-
-3. Open http://localhost:3000/auth/sign-up and create your account. The first account becomes the instance admin, and the bootstrap window then closes.
-
-#### First boot and `BOOTSTRAP_ADMIN_EMAIL`
-
-When `BOOTSTRAP_ADMIN_EMAIL` is set, only that address can sign up while the user table is empty.
-
-- With SMTP configured, the bootstrap sign-up emails a one-time link to that address, so only someone who controls the mailbox can complete it. This requires `BETTER_AUTH_URL` (the link origin).
-- Without SMTP, the first person to submit the gated address wins the window, so finish first boot before exposing the instance to others.
-
-The window is tied to the user table being empty. If the last account is ever deleted, the window reopens and the gated address (or, without SMTP, whoever signs up first) can claim admin again. Keep at least one account, or unset `BOOTSTRAP_ADMIN_EMAIL` before deleting the last one.
-
-#### Invite-only sign-up
-
-`AUTH_SIGNUP_MODE` is `open` (default) or `invite`. Set `AUTH_SIGNUP_MODE=invite` to require an invitation for new accounts:
-
-- On a fresh instance there are no invitations yet: set `BOOTSTRAP_ADMIN_EMAIL` and the first account for that address can sign up without an invitation (with SMTP configured, the bootstrap link is emailed to that address first), then create invitations from the admin page.
-- As admin, open the admin page (user menu → **Admin**) and create an invitation link for an email address. Each link is bound to that address, valid for one sign-up for 7 days, and can be revoked until used.
-- The invitee opens the link and completes sign-up. The token is consumed automatically.
-
-#### Password reset and SMTP
-
-Password reset requires SMTP and `BETTER_AUTH_URL`. Without them the forgot-password flow is hidden and the admin can set member passwords from the admin page instead.
-
-```bash
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=smtp-user
-SMTP_PASSWORD=smtp-password
-EMAIL_FROM="Morphic <morphic@example.com>"
-BETTER_AUTH_URL=https://morphic.example.com
-```
-
-With SMTP configured, password-reset emails are sent and invitation links are additionally emailed to invitees.
-
-`BETTER_AUTH_URL` is the canonical origin embedded in emailed links (password resets, invitations, bootstrap). It is never derived from request headers, so a spoofed `Host` cannot redirect a live credential to an attacker domain.
-
-#### HTTPS and secure cookies
-
-In production builds (Docker), session cookies carry the `__Secure-` prefix, so browsers only store and send them over HTTPS or on `localhost`. An instance reached via `http://<LAN-IP>:3000` will not stay logged in. Serve it over HTTPS (reverse proxy, Tailscale Serve, etc.). Development mode (`bun dev`) is not affected.
-
-#### Chat sharing
-
-With Better Auth, sharing chats is off until you set `ENABLE_SHARE=true`. See [Chat Sharing](#chat-sharing).
-
-### Supabase
-
-For deployments that already use Supabase, or that prefer a hosted auth service.
-
-1. Create a Supabase project at [supabase.com](https://supabase.com)
+1. Create an OAuth2/OpenID application at your provider with the redirect URI
+   `https://<your-host>/api/auth/callback/oidc`.
 
 2. Set the following environment variables:
 
-```bash
+```
 ENABLE_AUTH=true
-NEXT_PUBLIC_SUPABASE_URL=[YOUR_SUPABASE_PROJECT_URL]
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[YOUR_SUPABASE_PUBLISHABLE_KEY]
-# Required for account deletion. Keep server-side only.
-SUPABASE_SECRET_KEY=[YOUR_SUPABASE_SECRET_KEY]
+AUTH_SECRET=[openssl rand -base64 32]
+OIDC_ISSUER=[ISSUER_URL]            # e.g. https://authentik.example.com/application/o/morphic/
+OIDC_CLIENT_ID=[YOUR_CLIENT_ID]
+OIDC_CLIENT_SECRET=[YOUR_CLIENT_SECRET]
+OIDC_PROVIDER_NAME=Authentik        # optional
+OIDC_SCOPE=openid profile email     # optional
 ```
 
-3. Obtain your credentials from the Supabase dashboard:
-   - **Project URL**: Settings > API > Project URL
-   - **Publishable Key**: Settings > API Keys > publishable key (`sb_publishable_...`)
-   - **Secret Key**: Settings > API Keys > secret key (`sb_secret_...`)
+Notes: the issuer URL must serve `/.well-known/openid-configuration`. Account
+deletion removes Morphic data only; the identity stays in your provider.
 
-4. For password recovery emails to work, add your site's recovery destination
-   under **Auth → URL Verification → Redirect URLs**:
+#### Provider setup (Authentik example)
 
-   ```
-   [YOUR_SITE_URL]/auth/update-password
-   ```
+Create an _OAuth2/OpenID Provider_ (client type: confidential) and an
+application. Use the strict redirect URI
+`https://<your-host>/api/auth/callback/oidc` and the default `openid`,
+`profile` and `email` scopes. The issuer is
+`https://<authentik-host>/application/o/<application-slug>/`; confirm it
+against the `issuer` field of its `.well-known/openid-configuration`
+(including the trailing slash). Do not change the provider's subject mode
+later: the `sub` claim is the Morphic user id, so changing it orphans existing
+chat history.
 
-   Recovery links point at this URL (the same destination Morphic has always
-   used, so existing allowlist entries keep working). If the destination is
-   not allowlisted, Supabase silently falls back to the project Site URL and
-   the recovery code can never be exchanged for a session.
+#### Redirect URIs
 
-5. Optional: keep Supabase's per-IP rate limits per visitor. Sign-up,
-   password sign-in, and password reset run as server actions, so Supabase
-   sees the server's address unless Morphic forwards the visitor's. To
-   forward it, use an `sb_secret_...` key for `SUPABASE_SECRET_KEY` and turn
-   on **Authentication → Rate Limits → IP Address Forwarding**. On Vercel
-   production and preview deployments this is automatic. Elsewhere,
-   including `vercel dev`, set `SUPABASE_FORWARD_CLIENT_IP=true` only when a
-   reverse proxy in front of Morphic overwrites `X-Forwarded-For`; otherwise
-   visitors can spoof it to dodge the limits.
+Register one callback URI per hostname Morphic is reached on, using strict
+matching (scheme, host and path must match exactly, no trailing slash):
+
+```
+https://<your-host>/api/auth/callback/oidc
+http://localhost:3000/api/auth/callback/oidc    # only if you also run `bun dev`
+```
+
+The final segment (`oidc`) is the provider id set in `lib/auth/auth.ts`;
+changing it changes the URI. No post-logout redirect URI is needed: logout
+only clears Morphic's own session cookie and does not call the provider's
+end-session endpoint.
+
+#### Behind a reverse proxy
+
+The proxy must forward `X-Forwarded-Proto` and `X-Forwarded-Host`. Auth.js
+trusts these headers to build the callback URL. If you get a redirect URI
+mismatch, set the public URL explicitly:
+
+```
+AUTH_URL=https://morphic.example.com    # optional, auth callback base URL
+BASE_URL=https://morphic.example.com    # optional, Morphic's own links (e.g. sharing)
+```
+
+`BASE_URL` is read at runtime. Prefer it over `NEXT_PUBLIC_BASE_URL`, which is
+inlined at build time and would require rebuilding the image to change.
+
+#### Private or self-signed CA
+
+The Morphic container fetches the provider's discovery document and exchanges
+the authorization code server-side. If your provider uses a certificate from a
+private CA, mount the CA certificate into the container and point Node at it:
+
+```
+NODE_EXTRA_CA_CERTS=/certs/ca.pem
+```
+
+#### Troubleshooting
+
+- `/auth/error?error=Configuration`: issuer or discovery URL is wrong or
+  unreachable from the container.
+- `OAuthCallbackError` / redirect URI mismatch: the registered redirect URI
+  differs from the one built from your proxy headers. Set `AUTH_URL`.
+- Logging out only ends the Morphic session. Your provider's own session stays
+  active, so signing in again may not prompt for credentials.
 
 ## Guest Mode
 
@@ -377,12 +317,11 @@ Rate limiting only applies when `MORPHIC_CLOUD_DEPLOYMENT=true`.
 
 ### Recommended Setup
 
-| Environment             | Configuration                                   |
-| ----------------------- | ----------------------------------------------- |
-| Personal/Local          | `ENABLE_AUTH=false` (anonymous mode)            |
-| Self-hosted, multi-user | `AUTH_PROVIDER=better-auth` (built-in accounts) |
-| Public Demo             | `ENABLE_GUEST_CHAT=true` with rate limiting     |
-| Production              | `ENABLE_AUTH=true` (Supabase authentication)    |
+| Environment    | Configuration                               |
+| -------------- | ------------------------------------------- |
+| Personal/Local | `ENABLE_AUTH=false` (anonymous mode)        |
+| Public Demo    | `ENABLE_GUEST_CHAT=true` with rate limiting |
+| Production     | `ENABLE_AUTH=true` (OIDC authentication)    |
 
 ## Other Features
 
@@ -398,18 +337,6 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com
 ```
 
 Off by default. Traces include full prompts and completions, so point `LANGFUSE_BASE_URL` at a self-hosted instance if that content should not leave your infrastructure. See [Privacy and Telemetry](./PRIVACY.md) for everything else a self-hosted instance can send outbound.
-
-### Chat Sharing
-
-With Supabase, signed-in users can share chats without extra configuration. With Better Auth, sharing is opt-in:
-
-```bash
-ENABLE_SHARE=true  # runtime flag; works with prebuilt Docker images
-```
-
-`NEXT_PUBLIC_ENABLE_SHARE=true` also works when building from source, but Next.js inlines `NEXT_PUBLIC_*` values at build time, so setting it at runtime has no effect in a published image.
-
-Sharing is not available in anonymous mode.
 
 ### Outbound Fetch
 
@@ -472,19 +399,6 @@ told to ask for a re-attach if it needs one again.
 HISTORY_ATTACHMENT_REPLAY_LIMIT=10
 ```
 
-Pasted content is replayed the same way, and a thread that pastes a whole file on every
-turn carries every earlier copy. Older pasted blocks are replaced with a placeholder
-giving their size once the earlier turns hold more than the budget below. The paste stays
-visible in the conversation, and the model is told to ask for it again if it needs it.
-
-```bash
-# Optional: characters of pasted content replayed from earlier turns, excluding the
-# newest message. Dropped in whole blocks so the prompt prefix stays cacheable, so the
-# amount replayed can reach about twice the budget. A single earlier paste larger than
-# the budget is always replaced. Set to 0 to replay every pasted block (default: 200000)
-HISTORY_PASTED_CONTENT_CHAR_BUDGET=200000
-```
-
 ### Content Extraction
 
 Use Jina for enhanced content extraction:
@@ -492,42 +406,3 @@ Use Jina for enhanced content extraction:
 ```bash
 JINA_API_KEY=[YOUR_API_KEY]
 ```
-
-Alternatively, a self-hosted [crawl4ai](https://github.com/unclecode/crawl4ai) instance can serve as the fetch backend. When `CRAWL4AI_BASE_URL` is set it handles every fetch the tool performs — both regular and API extraction, PDFs included — and takes precedence over Jina and Tavily. The URL is sent to the crawler's `/crawl` pipeline in two passes: first as a page with the same fit filter the server's `/md` endpoint applies, then, if that yields nothing (Chromium cannot render PDFs), with the server's dedicated PDF scraping strategy. No request to the target is made from the Morphic server itself; detection runs through the crawler:
-
-```bash
-CRAWL4AI_BASE_URL=http://localhost:11235
-# Optional: only needed when the instance requires an API key
-# CRAWL4AI_API_KEY=[YOUR_CRAWL4AI_API_KEY]
-```
-
-### Version and Update Check
-
-The sidebar footer shows the running version (linking to the upstream releases page) and the install method. The server checks the upstream GitHub releases feed once per cache window; when a newer stable release exists, admins see an `Update: vX.Y.Z` link in place of the install label. The check is not user-specific: it runs once per cache window whenever any viewer triggers a render, and the cached result is shared. The check is silent on any failure and never blocks rendering.
-
-```bash
-# Optional: install-method label shown in the footer. Used verbatim, so any
-# value works (the Docker image sets `docker`). Defaults to `vercel` on
-# Vercel, `source` elsewhere.
-MORPHIC_INSTALL_METHOD=docker
-
-# Optional: upstream owner/repo whose latest release is checked
-# (default: miurla/morphic)
-MORPHIC_UPDATE_CHECK_REPO=miurla/morphic
-
-# Optional: cache window for the release check, in seconds
-# (default: 86400; values below 300 are clamped to 300; unset, empty, or
-# non-numeric values fall back to the default)
-MORPHIC_UPDATE_CHECK_TTL_SECONDS=86400
-
-# Optional: set to true to perform no upstream requests at all (default: false)
-MORPHIC_UPDATE_CHECK_DISABLED=false
-
-# Optional: comma-separated email addresses treated as admins for the update
-# link (case-insensitive). Useful when the auth provider has no role concept,
-# e.g. Supabase, where no user carries an `admin` role. No effect in anonymous
-# mode, where every viewer counts as an admin.
-MORPHIC_ADMIN_EMAILS=ops@example.com,me@example.com
-```
-
-The update link is shown to administrators only: users with the `admin` role, users whose email is listed in `MORPHIC_ADMIN_EMAILS`, or any user when `ENABLE_AUTH=false` (single-operator anonymous mode). The email allowlist only controls visibility of the update link; it grants no privileges elsewhere in the app. The version identifier and install label stay visible to everyone.
