@@ -4,8 +4,6 @@ import { Inter as FontSans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 
 import { getCurrentUser, getCurrentUserId } from '@/lib/auth/get-current-user'
-import { getAuthProvider, withShareOptIn } from '@/lib/auth/provider'
-import { AppUserProvider } from '@/lib/contexts/app-user-context'
 import { UserProvider } from '@/lib/contexts/user-context'
 import {
   ENFORCEMENT,
@@ -66,16 +64,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const user = await getCurrentUser()
-  // Sharing is opt-in for Better Auth (ENABLE_SHARE=true); the flag is
-  // folded into the capabilities on the server so a prebuilt image can
-  // still toggle it at runtime. Supabase shares without the flag, as it
-  // always has. shareChat enforces the same rule again.
-  const authProvider = getAuthProvider()
-  const capabilities = withShareOptIn(
-    authProvider.capabilities,
-    authProvider.name
-  )
+  const user =
+    process.env.ENABLE_AUTH === 'false' ? null : await getCurrentUser()
 
   const userId = user?.id ?? (await getCurrentUserId())
   const isCloudDeployment = process.env.MORPHIC_CLOUD_DEPLOYMENT === 'true'
@@ -90,7 +80,7 @@ export default async function RootLayout({
     usageBudgetEnabled && user
       ? await getUsageBudget({
           userId: user.id,
-          userCreatedAt: user.createdAt
+          userCreatedAt: user.createdAt ?? null
         })
       : null
   const initialUsage = usageSnapshot
@@ -120,28 +110,29 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <PostHogProvider userId={user?.id ?? null}>
-            <AppUserProvider user={user} capabilities={capabilities}>
-              <UserProvider hasUser={!!userId}>
-                <SidebarProvider defaultOpen={false}>
-                  <LibraryProvider>
-                    <UsageBudgetProvider
-                      key={user?.id ?? 'guest'}
-                      initialUsage={initialUsage}
-                      enabled={usageBudgetEnabled}
-                    >
-                      {userId && <AppSidebar user={user} />}
-                      <KeyboardShortcutHandler />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <Header user={user} />
-                        <main className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-                          <ArtifactRoot>{children}</ArtifactRoot>
-                        </main>
-                      </div>
-                    </UsageBudgetProvider>
-                  </LibraryProvider>
-                </SidebarProvider>
-              </UserProvider>
-            </AppUserProvider>
+            <UserProvider
+              hasUser={!!userId}
+              authEnabled={process.env.ENABLE_AUTH !== 'false'}
+            >
+              <SidebarProvider defaultOpen={false}>
+                <LibraryProvider>
+                  <UsageBudgetProvider
+                    key={user?.id ?? 'guest'}
+                    initialUsage={initialUsage}
+                    enabled={usageBudgetEnabled}
+                  >
+                    {userId && <AppSidebar />}
+                    <KeyboardShortcutHandler />
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <Header user={user} />
+                      <main className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+                        <ArtifactRoot>{children}</ArtifactRoot>
+                      </main>
+                    </div>
+                  </UsageBudgetProvider>
+                </LibraryProvider>
+              </SidebarProvider>
+            </UserProvider>
           </PostHogProvider>
           <Toaster />
           {isCloudDeployment && <Analytics />}

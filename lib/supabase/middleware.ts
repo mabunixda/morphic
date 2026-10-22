@@ -18,7 +18,21 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: {
+            name: string
+            value: string
+            options: {
+              path?: string
+              domain?: string
+              maxAge?: number
+              expires?: Date
+              httpOnly?: boolean
+              secure?: boolean
+              sameSite?: 'strict' | 'lax' | 'none'
+            }
+          }[]
+        ) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
@@ -97,7 +111,21 @@ export async function exchangeAuthCode(
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: {
+            name: string
+            value: string
+            options: {
+              path?: string
+              domain?: string
+              maxAge?: number
+              expires?: Date
+              httpOnly?: boolean
+              secure?: boolean
+              sameSite?: 'strict' | 'lax' | 'none'
+            }
+          }[]
+        ) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )

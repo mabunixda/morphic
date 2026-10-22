@@ -44,11 +44,8 @@ export async function POST(req: Request) {
     // Flush to ensure the score is sent
     await langfuse.score.flush()
 
-    // Get current user for RLS context (provider-agnostic seam)
-    let userId: string | null = null
-
-    const user = await getCurrentUser()
-    userId = user?.id ?? null
+    // Get current user for RLS context
+    const userId: string | null = (await getCurrentUser())?.id ?? null
 
     // Update the message metadata with the feedback score using the action
     if (messageId) {

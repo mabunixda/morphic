@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 
 import { signIn, signInWithGoogle } from '@/lib/actions/auth'
 import { safeRedirectPath } from '@/lib/auth/redirect-target'
-import { useAuthCapabilities } from '@/lib/contexts/app-user-context'
+import type { AuthCapabilities } from '@/lib/auth/types'
 import { cn } from '@/lib/utils/index'
 
 import { Button } from '@/components/ui/button'
@@ -27,17 +27,23 @@ export function LoginForm({
   className,
   next,
   confirmed = false,
+  provider,
+  providerDisplayName,
+  capabilities,
   ...props
 }: React.ComponentPropsWithoutRef<'div'> & {
   next?: string
   confirmed?: boolean
+  provider?: string
+  providerDisplayName?: string
+  capabilities: AuthCapabilities
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const capabilities = useAuthCapabilities()
+  const { oauth, passwordReset, signUp } = capabilities
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,6 +95,21 @@ export function LoginForm({
     }
   }
 
+  const handleOIDCLogin = () => {
+    setIsLoading(true)
+    setError(null)
+
+    // Set auth_next cookie so the route handler knows where to redirect after OAuth
+    document.cookie = next
+      ? `auth_next=${encodeURIComponent(
+          safeRedirectPath(next)
+        )}; path=/; max-age=300; SameSite=Lax`
+      : 'auth_next=; path=/; max-age=0; SameSite=Lax'
+    
+    // Navigate to the route handler which will initiate OIDC OAuth flow
+    window.location.href = '/auth/oidc-signin'
+  }
+
   return (
     <div
       className={cn('flex flex-col items-center gap-6', className)}
@@ -108,16 +129,18 @@ export function LoginForm({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            {capabilities.oauth && (
+            {oauth && (
               <>
                 <Button
                   variant="outline"
                   type="button"
                   className="w-full"
-                  onClick={handleSocialLogin}
+                  onClick={provider === 'oidc' ? handleOIDCLogin : handleSocialLogin}
                   disabled={isLoading}
                 >
-                  Sign In with Google
+                  {provider === 'oidc'
+                    ? `Sign In with ${providerDisplayName || 'SSO'}`
+                    : 'Sign In with Google'}
                 </Button>
 
                 <div className="relative my-2">
@@ -148,7 +171,7 @@ export function LoginForm({
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-                  {capabilities.passwordReset && (
+                  {passwordReset && (
                     <Link
                       href="/auth/forgot-password"
                       className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
@@ -172,7 +195,7 @@ export function LoginForm({
               </Button>
             </form>
           </div>
-          {capabilities.signUp && (
+          {signUp && (
             <div className="mt-6 text-center text-sm">
               Don&apos;t have an account?{' '}
               <Link

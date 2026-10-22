@@ -1,18 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 
 import {
   IconChartBar as ChartBar,
   IconLink as Link2,
   IconLogout as LogOut,
-  IconShield,
   IconUserCircle as UserRound
 } from '@tabler/icons-react'
 
-import { signOut } from '@/lib/actions/auth'
 import type { AppUser } from '@/lib/auth/types'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -40,7 +37,6 @@ interface UserMenuProps {
 }
 
 export default function UserMenu({ user }: UserMenuProps) {
-  const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [usageOpen, setUsageOpen] = useState(false)
@@ -48,7 +44,7 @@ export default function UserMenu({ user }: UserMenuProps) {
   const userName = user.name || 'User'
   const avatarUrl = user.image ?? undefined
 
-  const getInitials = (name: string, email: string | null | undefined) => {
+  const getInitials = (name: string, email: string | undefined) => {
     if (name && name !== 'User') {
       const names = name.split(' ')
       if (names.length > 1) {
@@ -63,9 +59,7 @@ export default function UserMenu({ user }: UserMenuProps) {
   }
 
   const handleLogout = async () => {
-    await signOut()
-    router.push('/')
-    router.refresh()
+    await signOut({ redirectTo: '/' })
   }
 
   const handleOpenAccount = () => {
@@ -99,7 +93,7 @@ export default function UserMenu({ user }: UserMenuProps) {
             <Avatar className="size-6">
               <AvatarImage src={avatarUrl} alt={userName} />
               <AvatarFallback>
-                {getInitials(userName, user.email)}
+                {getInitials(userName, user.email ?? undefined)}
               </AvatarFallback>
             </Avatar>
             {isLow && (
@@ -132,14 +126,6 @@ export default function UserMenu({ user }: UserMenuProps) {
             <UserRound className="size-4" />
             <span>Account</span>
           </DropdownMenuItem>
-          {user.role === 'admin' && (
-            <DropdownMenuItem asChild>
-              <Link href="/auth/admin">
-                <IconShield className="size-4" />
-                <span>Admin</span>
-              </Link>
-            </DropdownMenuItem>
-          )}
           {usage && (
             <DropdownMenuItem
               onSelect={event => {

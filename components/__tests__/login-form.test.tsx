@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { signIn, signInWithGoogle } from '@/lib/actions/auth'
-import { AppUserProvider } from '@/lib/contexts/app-user-context'
 
 import { LoginForm } from '@/components/login-form'
 
@@ -36,12 +35,11 @@ function renderForm(
   confirmed?: boolean
 ) {
   return render(
-    <AppUserProvider
-      user={user}
+    <LoginForm 
+      next={next} 
+      confirmed={confirmed}
       capabilities={{ ...capabilities, ...override }}
-    >
-      <LoginForm next={next} confirmed={confirmed} />
-    </AppUserProvider>
+    />
   )
 }
 

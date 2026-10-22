@@ -1,5 +1,6 @@
 import { betterAuthProvider } from '@/lib/auth/providers/better-auth'
 import { noneAuthProvider } from '@/lib/auth/providers/none'
+import { oidcAuthProvider } from '@/lib/auth/providers/oidc'
 import { supabaseAuthProvider } from '@/lib/auth/providers/supabase'
 import type {
   AuthCapabilities,
@@ -10,14 +11,16 @@ import type {
 const AUTH_PROVIDER_NAMES: AuthProviderName[] = [
   'supabase',
   'better-auth',
-  'none'
+  'none',
+  'oidc'
 ]
 
 // Providers register here as they ship.
 const providerRegistry: Partial<Record<AuthProviderName, AuthProvider>> = {
   supabase: supabaseAuthProvider,
   'better-auth': betterAuthProvider,
-  none: noneAuthProvider
+  none: noneAuthProvider,
+  oidc: oidcAuthProvider
 }
 
 function enforceCloudDeploymentGuard(

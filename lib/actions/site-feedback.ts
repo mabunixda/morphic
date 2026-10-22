@@ -11,10 +11,10 @@ export async function submitFeedback(data: {
   pageUrl: string
 }) {
   try {
-    // Get current user if logged in (provider-agnostic seam)
-    const user = await getCurrentUser()
-    const userId = user?.id
-    const userEmail = user?.email ?? undefined
+    // Get current user if logged in
+    const currentUser = await getCurrentUser()
+    const userId: string | undefined = currentUser?.id
+    const userEmail: string | undefined = currentUser?.email ?? undefined
 
     // Get user agent from headers
     const { headers } = await import('next/headers')
